@@ -20,6 +20,8 @@
 #include "main.h"
 #include "usart.h"
 #include "usb_device.h"
+#include "usbd_cdc_if.h"
+#include "proto.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -45,7 +47,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t  log_data[512] = {0};
+uint32_t log_data_len = 512;
+extern USBD_HandleTypeDef hUsbDeviceHS;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,7 +60,41 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint8_t vpc_send_hs(const uint8_t* data, uint16_t len)
+{
+    if (hUsbDeviceHS.dev_state != USBD_STATE_CONFIGURED) {
+        return USBD_FAIL;
+    }
 
+    // 分片发送（如有需要）
+    uint16_t offset = 0;
+    while (offset < len) {
+        uint16_t chunk = len - offset;
+        if (chunk > APP_TX_DATA_SIZE) chunk = APP_TX_DATA_SIZE;
+
+        // 非阻塞重试
+        for (int tries = 0; tries < 5; tries++) {
+            uint8_t ret = CDC_Transmit_HS((uint8_t*)(data + offset), chunk);
+            if (ret == USBD_OK) {
+                offset += chunk;
+                break;
+            } else {
+                return ret;
+            }
+        }
+        // 若连续 busy 超过重试次数，可择机放弃/延后
+        if (offset < len && hUsbDeviceHS.dev_state != USBD_STATE_CONFIGURED) {
+            return USBD_FAIL;
+        }
+    }
+    return USBD_OK;
+}
+
+void usb_log(const char* log)
+{
+    proto_conv_log(log, log_data, &log_data_len);
+	  vpc_send_hs(log_data, log_data_len);
+}
 /* USER CODE END 0 */
 
 /**
@@ -100,8 +138,12 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-		printf("this is superkvm dev demo\n");
-		HAL_Delay(1000);  // 添加延时，避免发送过快
+		char log_buf[256] = {0};
+		printf("this is superkvm dev demo, build time:%s %s\n", __DATE__, __TIME__);
+		snprintf(log_buf, sizeof(log_buf), "this is superkvm dev demo, build time:%s %s\n", __DATE__, __TIME__);
+		usb_log(log_buf);
+		
+		HAL_Delay(5000);  // 添加延时，避免发送过快
 
     /* USER CODE BEGIN 3 */
   }

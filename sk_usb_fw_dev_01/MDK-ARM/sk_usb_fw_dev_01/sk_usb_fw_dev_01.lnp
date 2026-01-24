@@ -5,6 +5,7 @@
 "sk_usb_fw_dev_01\usart.o"
 "sk_usb_fw_dev_01\stm32f4xx_it.o"
 "sk_usb_fw_dev_01\stm32f4xx_hal_msp.o"
+"sk_usb_fw_dev_01\proto.o"
 "sk_usb_fw_dev_01\usb_device.o"
 "sk_usb_fw_dev_01\usbd_desc.o"
 "sk_usb_fw_dev_01\usbd_cdc_if.o"
